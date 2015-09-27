@@ -1,0 +1,16 @@
+method IF_HTTP_EXTENSION~HANDLE_REQUEST.
+
+* SICF SubElement : zcontacts_delet
+
+* Internal tables
+  DATA: lt_contacts TYPE STANDARD TABLE OF ztb_contacts.
+
+* Structures
+  DATA: ls_contacts  TYPE ztb_contacts.
+
+*     Retrieve form data
+      ls_contacts-email     = server->request->get_form_field('Email').
+
+DELETE FROM ztb_contacts WHERE email = ls_contacts-email.
+
+endmethod.

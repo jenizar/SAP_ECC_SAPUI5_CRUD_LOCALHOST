@@ -1,0 +1,96 @@
+method IF_HTTP_EXTENSION~HANDLE_REQUEST.
+
+* SICF SubElement : zcontacts
+
+DATA: method TYPE string.
+
+DATA: lo_json_data TYPE REF TO cl_trex_json_serializer,
+      json TYPE string.
+
+TYPES: BEGIN OF ty_contacts,
+         email   TYPE ztb_contacts-email,
+         fname   TYPE ztb_contacts-fname,
+         lname   TYPE ztb_contacts-lname,
+         age     TYPE ztb_contacts-age,
+         address TYPE ztb_contacts-address,
+       END OF ty_contacts.
+
+DATA: gi_header TYPE STANDARD TABLE OF ty_contacts.
+
+data: lt_ztb_contacts type ZTB_TT_CONTACTS.
+  data: lr_ztb_contacts_data type ref to data.
+
+  field-symbols: <lwa_ztb_contacts> type any.
+
+  field-symbols: <fs_ZTB_CONTACTS_EMAIL> type any.
+  field-symbols: <fs_ZTB_CONTACTS_FNAME> type any.
+  field-symbols: <fs_ZTB_CONTACTS_LNAME> type any.
+  field-symbols: <fs_ZTB_CONTACTS_AGE> type any.
+  field-symbols: <fs_ZTB_CONTACTS_ADDRESS> type any.
+
+" * ZTB_TT_CONTACTS
+  CONSTANTS: C_ZTB_CONTACTS_EMAIL type string value 'EMAIL'.
+  CONSTANTS: C_ZTB_CONTACTS_FNAME type string value 'FNAME'.
+  CONSTANTS: C_ZTB_CONTACTS_LNAME type string value 'LNAME'.
+  CONSTANTS: C_ZTB_CONTACTS_AGE type string value 'AGE'.
+  CONSTANTS: C_ZTB_CONTACTS_ADDRESS type string value 'ADDRESS'.
+
+      create data lr_ztb_contacts_data like line of lt_ztb_contacts.
+      assign lr_ztb_contacts_data->* to <lwa_ztb_contacts>.
+
+  ASSIGN COMPONENT C_ZTB_CONTACTS_EMAIL OF STRUCTURE <lwa_ztb_contacts> TO <fs_ZTB_CONTACTS_EMAIL>.
+  ASSIGN COMPONENT C_ZTB_CONTACTS_FNAME OF STRUCTURE <lwa_ztb_contacts> TO <fs_ZTB_CONTACTS_FNAME>.
+  ASSIGN COMPONENT C_ZTB_CONTACTS_LNAME OF STRUCTURE <lwa_ztb_contacts> TO <fs_ZTB_CONTACTS_LNAME>.
+  ASSIGN COMPONENT C_ZTB_CONTACTS_AGE OF STRUCTURE <lwa_ztb_contacts> TO <fs_ZTB_CONTACTS_AGE>.
+  ASSIGN COMPONENT C_ZTB_CONTACTS_ADDRESS OF STRUCTURE <lwa_ztb_contacts> TO <fs_ZTB_CONTACTS_ADDRESS>.
+
+DATA : i TYPE n length 4,
+       k TYPE I.
+DATA: sendtext TYPE string.
+
+  method = server->request->get_header_field( name = '~request_method' ).
+**method not allowed
+  IF method <> 'GET'.
+    server->response->set_status( code = '405' reason = 'You must use GET' ).
+    EXIT.
+  ENDIF.
+
+SELECT email fname lname age address INTO TABLE gi_header FROM ztb_contacts.
+k = lines( gi_header ).
+
+loop at gi_header into <lwa_ztb_contacts>.
+i = i + 1.
+if i lt k.
+  concatenate sendtext '{' '"' C_ZTB_CONTACTS_EMAIL '"' ': ' '"' <fs_ZTB_CONTACTS_EMAIL> '"' ', ' into sendtext.
+  concatenate sendtext '"' C_ZTB_CONTACTS_FNAME '"' ': ' '"' <fs_ZTB_CONTACTS_FNAME> '"' ', ' into sendtext.
+  concatenate sendtext '"' C_ZTB_CONTACTS_LNAME '"' ': ' '"' <fs_ZTB_CONTACTS_LNAME> '"' ', ' into sendtext.
+  concatenate sendtext '"' C_ZTB_CONTACTS_AGE '"' ': ' '"' <fs_ZTB_CONTACTS_AGE> '"' ', ' into sendtext.
+  concatenate sendtext '"' C_ZTB_CONTACTS_ADDRESS '"' ': ' '"' <fs_ZTB_CONTACTS_ADDRESS> '"' '}' ', ' into sendtext.
+elseif i ge k.
+  concatenate sendtext '{' '"' C_ZTB_CONTACTS_EMAIL '"' ': ' '"' <fs_ZTB_CONTACTS_EMAIL> '"' ', ' into sendtext.
+  concatenate sendtext '"' C_ZTB_CONTACTS_FNAME '"' ': ' '"' <fs_ZTB_CONTACTS_FNAME> '"' ', ' into sendtext.
+  concatenate sendtext '"' C_ZTB_CONTACTS_LNAME '"' ': ' '"' <fs_ZTB_CONTACTS_LNAME> '"' ', ' into sendtext.
+  concatenate sendtext '"' C_ZTB_CONTACTS_AGE '"' ': ' '"' <fs_ZTB_CONTACTS_AGE> '"' ', ' into sendtext.
+  concatenate sendtext '"' C_ZTB_CONTACTS_ADDRESS '"' ': ' '"' <fs_ZTB_CONTACTS_ADDRESS> '"' '}' into sendtext.
+endif.
+endloop.
+
+CREATE OBJECT lo_json_data
+   EXPORTING
+     DATA = gi_header.
+
+* serialize data
+   lo_json_data->serialize( ).
+
+* get serialized json data string
+   json = lo_json_data->get_data( ).
+
+CONCATENATE '{"UserSet":[' sendtext ']}' INTO json.
+* Cross Domain communication
+   CALL METHOD server->response->set_header_field( name = 'Access-Control-Allow-Origin' value = '*' ).
+  server->response->set_status( code = '200' reason = 'OK' ).
+*    server->response->set_header_field( name = 'Content-Type' value = '"application/javascript' ).
+    server->response->set_header_field( name = 'Content-Type' value = 'application/json; charset=iso-8859-1' ).
+  server->response->set_cdata( data = json ).
+
+endmethod.

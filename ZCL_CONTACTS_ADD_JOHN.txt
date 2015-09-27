@@ -1,0 +1,22 @@
+method IF_HTTP_EXTENSION~HANDLE_REQUEST.
+
+* SICF SubElement : zcontacts_add
+
+* Internal tables
+  DATA: lt_contacts TYPE STANDARD TABLE OF ztb_contacts.
+
+* Structures
+  DATA: ls_contacts  TYPE ztb_contacts.
+
+*     Retrieve form data
+      ls_contacts-email     = server->request->get_form_field('Email').
+      ls_contacts-fname = server->request->get_form_field('Firstname').
+      ls_contacts-lname  = server->request->get_form_field('Lastname').
+      ls_contacts-age  = server->request->get_form_field('Age').
+      ls_contacts-address  = server->request->get_form_field('Address').
+
+      append ls_contacts to lt_contacts.
+
+      INSERT ztb_contacts FROM ls_contacts.
+
+endmethod.
